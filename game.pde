@@ -17,6 +17,9 @@ boolean[] alive = new boolean[MAX_POINTS];
 boolean[] isRed = new boolean[MAX_POINTS]; // true: 赤, false: 緑
 int pointCount = 0;
 
+// スコア
+int score = 0;
+
 // 追加用タイマー
 int lastSpawnFrame = 0;
 int spawnIntervalFrames = 60; // 60フレームごと（約1秒ごと）に追加
@@ -79,21 +82,20 @@ void draw() {
   }
 
   // 円描画
-  float r = 0;
-  boolean circleActive = false;
   if (leftHolding) {
     noFill();
     stroke(255, 0, 0, 80);
     ellipse(mouseX, mouseY, circleSize, circleSize);
-    r = circleSize / 2.0;
-    circleActive = true;
   } else if (hasCircle) {
     noFill();
     stroke(255, 0, 0);
     ellipse(circleX, circleY, circleSize, circleSize);
-    r = circleSize / 2.0;
-    circleActive = true;
   }
+
+  // スコア表示
+  fill(0);
+  textSize(20);
+  text("Score: " + score, 20, 30);
 }
 
 // ランダムな点を1つ追加
@@ -118,24 +120,29 @@ void mousePressed() {
 }
 
 void mouseReleased() {
-  // 円を確定 → 円に入っている点だけ消す
+  // 円を確定 → 円に入っている点だけ消してスコア処理（赤: +100, 緑: -200）
   if (mouseButton == LEFT && leftHolding) {
     circleX = mouseX;
     circleY = mouseY;
     hasCircle = true;
     leftHolding = false;
 
-    // 円の当たり判定（確定時だけ）
     float r = circleSize / 2.0;
     for (int i = 0; i < pointCount; i++) {
       if (!alive[i]) continue;
       float d = dist(circleX, circleY, px[i], py[i]);
       if (d <= r) {
+        // 赤点を赤い円で → +100, 緑点を赤い円で → -200
+        if (isRed[i]) {
+          score += 100;
+        } else {
+          score -= 200;
+        }
         alive[i] = false;
       }
     }
 
-  // 四角形を確定 → 四角形に入っている点だけ消す
+  // 四角形を確定 → 四角形に入っている点だけ消してスコア処理（緑: +100, 赤: -200）
   } else if (mouseButton == RIGHT && rightDragging) {
     x2 = mouseX;
     y2 = mouseY;
@@ -146,17 +153,21 @@ void mouseReleased() {
     int rw = abs(x2 - x1);
     int rh = abs(y2 - y1);
 
-    // 四角形の当たり判定（確定時だけ）
     for (int i = 0; i < pointCount; i++) {
       if (!alive[i]) continue;
       if (px[i] >= rx && px[i] <= rx + rw &&
           py[i] >= ry && py[i] <= ry + rh) {
+        // 緑点を緑の四角形で → +100, 赤点を緑の四角形で → -200
+        if (!isRed[i]) {
+          score += 100;
+        } else {
+          score -= 200;
+        }
         alive[i] = false;
       }
     }
   }
 }
-
 
 // ホイール：円サイズ（確定後は変えない）
 void mouseWheel(processing.event.MouseEvent event) {
