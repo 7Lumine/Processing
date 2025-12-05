@@ -1,67 +1,116 @@
-int circleX, circleY;     // 円の中心（確定位置）
+// 円
+int circleX, circleY;
 float circleSize = 80;
 boolean hasCircle = false;
+boolean leftHolding = false;
 
-boolean leftHolding = false;   // 左クリック押しっぱなし
-
+// 四角形
 int x1, y1;
 int x2, y2;
-boolean rightDragging = false; // 四角形用ドラッグフラグ
+boolean rightDragging = false;
+
+// 点の定義
+final int MAX_POINTS = 200;
+float[] px  = new float[MAX_POINTS];
+float[] py  = new float[MAX_POINTS];
+boolean[] alive = new boolean[MAX_POINTS];
+boolean[] isRed = new boolean[MAX_POINTS]; // true: 赤, false: 緑
+int pointCount = 0;
+
+// 追加用タイマー
+int lastSpawnFrame = 0;
+int spawnIntervalFrames = 60; // 60フレームごと（約1秒ごと）に追加
 
 void setup() {
-  size(400, 400);
+  size(600, 400);
   rectMode(CORNER);
+
+  // 最初に少しだけ点を出しておく
+  for (int i = 0; i < 10; i++) {
+    spawnPoint();
+  }
 }
 
 void draw() {
   background(255);
-  // タイム表示
-  fill(0);
-  textSize(32);
-  text(frameCount/60, 180, 50);
 
-  // 四角形の描画（右ドラッグ用）
+  // 一定間隔ごとに新しい点を追加
+  if (frameCount - lastSpawnFrame >= spawnIntervalFrames) {
+    spawnPoint();
+    lastSpawnFrame = frameCount;
+  }
+
+  // 点の描画
+  noStroke();
+  for (int i = 0; i < pointCount; i++) {
+    if (!alive[i]) continue;
+    if (isRed[i]) {
+      fill(255, 0, 0);
+    } else {
+      fill(0, 200, 0);
+    }
+    ellipse(px[i], py[i], 8, 8);
+  }
+
+  // 四角形描画
+  int rx = 0, ry = 0, rw = 0, rh = 0;
+  boolean rectActive = false;
+
   if (!rightDragging && x1 != x2 && y1 != y2) {
-    int rx = min(x1, x2);
-    int ry = min(y1, y2);
-    int rw = abs(x2 - x1);
-    int rh = abs(y2 - y1);
-    fill(200, 220, 255);
+    rx = min(x1, x2);
+    ry = min(y1, y2);
+    rw = abs(x2 - x1);
+    rh = abs(y2 - y1);
+    noFill();
     stroke(0);
     rect(rx, ry, rw, rh);
+    rectActive = true;
   }
 
   if (rightDragging) {
-    int rx = min(x1, mouseX);
-    int ry = min(y1, mouseY);
-    int rw = abs(mouseX - x1);
-    int rh = abs(mouseY - y1);
+    rx = min(x1, mouseX);
+    ry = min(y1, mouseY);
+    rw = abs(mouseX - x1);
+    rh = abs(mouseY - y1);
     noFill();
-    stroke(255, 0, 0);
+    stroke(0, 0, 255);
     rect(rx, ry, rw, rh);
+    rectActive = true;
   }
 
-  // 円の描画（左クリックで操作）
+  // 円描画
+  float r = 0;
+  boolean circleActive = false;
   if (leftHolding) {
-    // 左クリック中はカーソル追従のプレビュー
     noFill();
-    stroke(0, 0, 255, 50);
+    stroke(255, 0, 0, 80);
     ellipse(mouseX, mouseY, circleSize, circleSize);
+    r = circleSize / 2.0;
+    circleActive = true;
   } else if (hasCircle) {
-    // 左クリックを離した後は、確定位置で描画
     noFill();
-    stroke(0);
+    stroke(255, 0, 0);
     ellipse(circleX, circleY, circleSize, circleSize);
+    r = circleSize / 2.0;
+    circleActive = true;
   }
 }
 
-// 円・四角形の座標処理
+// ランダムな点を1つ追加
+void spawnPoint() {
+  if (pointCount >= MAX_POINTS) return;
+  px[pointCount] = random(width);
+  py[pointCount] = random(height);
+  alive[pointCount] = true;
+  isRed[pointCount] = random(1) < 0.5; // 半々で赤/緑
+  pointCount++;
+}
+
+// 左クリック：円
 void mousePressed() {
   if (mouseButton == LEFT) {
-    // 円モード：左クリック押しっぱなしでプレビュー
     leftHolding = true;
   } else if (mouseButton == RIGHT) {
-    // 四角形モード：右ドラッグで対角を指定
     x1 = mouseX;
     y1 = mouseY;
     rightDragging = true;
@@ -69,26 +118,51 @@ void mousePressed() {
 }
 
 void mouseReleased() {
+  // 円を確定 → 円に入っている点だけ消す
   if (mouseButton == LEFT && leftHolding) {
-    // 円を確定
     circleX = mouseX;
     circleY = mouseY;
     hasCircle = true;
     leftHolding = false;
-  } else if (mouseButton == RIGHT) {
-    // 四角形を確定
+
+    // 円の当たり判定（確定時だけ）
+    float r = circleSize / 2.0;
+    for (int i = 0; i < pointCount; i++) {
+      if (!alive[i]) continue;
+      float d = dist(circleX, circleY, px[i], py[i]);
+      if (d <= r) {
+        alive[i] = false;
+      }
+    }
+
+  // 四角形を確定 → 四角形に入っている点だけ消す
+  } else if (mouseButton == RIGHT && rightDragging) {
     x2 = mouseX;
     y2 = mouseY;
     rightDragging = false;
+
+    int rx = min(x1, x2);
+    int ry = min(y1, y2);
+    int rw = abs(x2 - x1);
+    int rh = abs(y2 - y1);
+
+    // 四角形の当たり判定（確定時だけ）
+    for (int i = 0; i < pointCount; i++) {
+      if (!alive[i]) continue;
+      if (px[i] >= rx && px[i] <= rx + rw &&
+          py[i] >= ry && py[i] <= ry + rh) {
+        alive[i] = false;
+      }
+    }
   }
 }
 
+
+// ホイール：円サイズ（確定後は変えない）
 void mouseWheel(processing.event.MouseEvent event) {
   if (leftHolding) {
     float e = event.getCount();
-    circleSize -= e * 20;   //この係数で円の大きさを変える感度変更可能
+    circleSize -= e * 20;
     circleSize = max(10, circleSize);
   }
 }
-
-
