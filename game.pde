@@ -62,7 +62,7 @@ void draw() {
     rw = abs(x2 - x1);
     rh = abs(y2 - y1);
     noFill();
-    stroke(0);
+    stroke(0, 200, 0);
     rect(rx, ry, rw, rh);
     rectActive = true;
   }
@@ -73,7 +73,7 @@ void draw() {
     rw = abs(mouseX - x1);
     rh = abs(mouseY - y1);
     noFill();
-    stroke(0, 0, 255);
+    stroke(0, 200, 0, 80);
     rect(rx, ry, rw, rh);
     rectActive = true;
   }
